@@ -256,23 +256,23 @@
 
 (defmethod get-spec-form* :entity
   [{:keys [field/_parent type/implements spec/qualified?] :or {qualified? true}} opts]
-  (sc/spy (let [filter-fn (fn [pred c]
-                            (->> c
-                                 (filter :spec/tag)
-                                 (filter pred)
-                                 (map #(get-spec-name % opts))
-                                 vec))
-                req (filter-fn #(not (:field/optional %)) _parent)
-                opt (filter-fn #(:field/optional %) _parent)
-                form (if qualified?
-                       `(s/keys :req ~req :opt ~opt)
-                       `(s/keys :req-un ~req :opt-un ~opt))]
-            (if implements
-              (list* `s/and
-                     (reduce (fn [c interface]
-                               (conj c (get-spec-name interface opts)))
-                             [form] implements))
-              form))))
+  (let [filter-fn (fn [pred c]
+                    (->> c
+                         (filter :spec/tag)
+                         (filter pred)
+                         (map #(get-spec-name % opts))
+                         vec))
+        req (filter-fn #(not (:field/optional %)) _parent)
+        opt (filter-fn #(:field/optional %) _parent)
+        form (if qualified?
+               `(s/keys :req ~req :opt ~opt)
+               `(s/keys :req-un ~req :opt-un ~opt))]
+    (if implements
+      (list* `s/and
+             (reduce (fn [c interface]
+                       (conj c (get-spec-name interface opts)))
+                     [form] implements))
+      form)))
 
 ;EXTENSOES OCOTOPUS
 
@@ -316,16 +316,16 @@
 
 (defmethod get-spec-form* :param-group
   [params {:keys [group-type] :as opts}]
-  (sc/spy (let [filter-fn (fn [pred c]
-                            (->> c
-                                 (filter pred)
-                                 (map #(get-spec-name % opts))
-                                 vec))
-                req (filter-fn #(not (:param/optional %)) params)
-                opt (filter-fn #(:param/optional %) params)]
-            (case group-type
-              :map `(s/keys :req-un ~req :opt-un ~opt)
-              :tuple (list* `s/tuple (map #(get-spec-name % opts) params))))))
+  (let [filter-fn (fn [pred c]
+                    (->> c
+                         (filter pred)
+                         (map #(get-spec-name % opts))
+                         vec))
+        req (filter-fn #(not (:param/optional %)) params)
+        opt (filter-fn #(:param/optional %) params)]
+    (case group-type
+      :map `(s/keys :req-un ~req :opt-un ~opt)
+      :tuple (list* `s/tuple (map #(get-spec-name % opts) params)))))
 
 (defmethod get-spec-form* "String" [_ _] `string?)
 

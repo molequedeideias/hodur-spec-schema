@@ -6,7 +6,7 @@
             [hodur-engine.octopus :as engine]
             [hodur-spec-schema.octopus :as hodur-spec]
             [test-fns]
-            [sc.api :as sc]))
+            #_[sc.api :as sc]))
 
 (def basic-schema
   '[^{:spec/tag true

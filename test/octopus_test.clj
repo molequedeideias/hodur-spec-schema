@@ -10,7 +10,7 @@
             [matcher-combinators.midje :refer [match throws-match]]
             [matcher-combinators.matchers :as mt]
             [clojure.set :as set]
-            [sc.api :as sc])
+            #_[sc.api :as sc])
   (:import (java.util UUID)
            (java.net URI)))
 
