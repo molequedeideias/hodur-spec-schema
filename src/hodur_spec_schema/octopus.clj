@@ -3,6 +3,7 @@
             [datascript.core :as d]
             [datascript.query-v3 :as q]
             [camel-snake-kebab.core :refer [->kebab-case-string]]
+            [meander.epsilon :as m]
             [sc.api :as sc]))
 
 (defn ^:private get-ids-by-node-type [conn node-type]
@@ -43,27 +44,35 @@
 
 (defn ^:private get-spec-entity-name
   [type-name
-   {:keys [prefix]}]
-  (keyword (name prefix)
+   {:keys [prefix-entities] :or {prefix-entities "modelo.entidade"}}]
+  (keyword (name prefix-entities)
            (->kebab-case-string type-name)))
+
+(defn ^:private get-namespace-for-spec
+  [prefix type-name]
+  (if prefix
+    (str (name prefix) "." (->kebab-case-string type-name))
+    (->kebab-case-string type-name)))
+
+
 
 (defn ^:private get-spec-field-name
   [type-name field-name
    {:keys [prefix]}]
-  (keyword (str (name prefix) "." (->kebab-case-string type-name))
+  (keyword (get-namespace-for-spec prefix type-name)
            (->kebab-case-string field-name)))
 
 (defn ^:private get-spec-param-name
   [type-name field-name param-name
    {:keys [prefix]}]
-  (keyword (str (name prefix) "." (->kebab-case-string type-name) "."
+  (keyword (str (get-namespace-for-spec prefix type-name) "."
                 (->kebab-case-string field-name))
            (->kebab-case-string param-name)))
 
 (defn ^:private get-spec-param-group-name
   [type-name field-name
    {:keys [prefix params-postfix group-type] :or {params-postfix "%"} :as opts}]
-  (keyword (str (name prefix) "." (->kebab-case-string type-name))
+  (keyword (get-namespace-for-spec prefix type-name)
            (str (->kebab-case-string field-name)
                 (case group-type
                   :map ""
@@ -310,7 +319,10 @@
 
 (defmethod get-spec-form* :db.type/tuple
   [{:keys [datomic/tupleAttrs] :as obj} opts]
-  (list* `s/cat [:param `number?]))
+  (m/rewrite tupleAttrs
+             [(m/and !n !n1) ...]
+             (clojure.spec.alpha/cat . (m/app (comp keyword name) !n)
+                 !n1 ...)))
 
 ;EXTENSOES OCOTOPUS
 
@@ -473,14 +485,14 @@
   ([conn]
    (schema conn nil))
   ([conn {:keys [prefix] :as opts}]
-   (let [opts' (if-not prefix (assoc opts :prefix (default-prefix)) opts)]
+   (let [opts' (if (= :ns prefix)(assoc opts :prefix (default-prefix)) opts)]
      (compile-all conn opts'))))
 
 (defmacro defspecs
   ([conn]
    `(defspecs ~conn nil))
   ([conn {:keys [prefix] :as opts}]
-   (let [opts# (if-not prefix (assoc opts :prefix (eval-default-prefix)) (eval opts))
+   (let [opts# (if (= :ns prefix) (assoc opts :prefix (eval-default-prefix)) (eval opts))
          conn# (eval conn)]
      (mapv (fn [form] form)
            (schema conn# opts#)))))

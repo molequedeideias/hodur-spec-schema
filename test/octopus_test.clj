@@ -10,12 +10,14 @@
             [matcher-combinators.midje :refer [match throws-match]]
             [matcher-combinators.matchers :as mt]
             [clojure.set :as set]
-            #_[sc.api :as sc])
+    #_[sc.api :as sc])
   (:import (java.util UUID)
            (java.net URI)))
 
 (def meta-db (engine/init-schema '[^{:spec/tag                   true
-                                     :model.attr/apenas-runtime? false}
+                                     :model.attr/apenas-runtime? false
+                                     :optional                   true}
+
 
                                    default
 
@@ -39,12 +41,15 @@
                                     ^Estado-Workflow-Person status]
 
                                    Employee
-                                   [^ID id
+                                   [^{:type     ID
+                                      :optional false}
+                                    id
                                     ^String name
 
                                     ^{:type             String
                                       :doc              "The very employee number of this employee"
                                       :datomic/unique   :db.unique/identity
+                                      :optional         false
                                       :datomic/fulltext false}
                                     number
                                     ^Float salary
@@ -99,7 +104,8 @@
                                     ^Estado-Workflow-Employee status
                                     ^SearchResult last-search-results]
 
-                                   ^{:union true}
+                                   ^{:union true
+                                     :spec/alias :entidade/search-result}
                                    SearchResult
                                    [Employee Person EmploymentType]
 
@@ -136,29 +142,39 @@
 (deftest tests-specs-octopus
 
   (fact ":db/type keyword"
-        (s/valid? :octopus-test.employee/keyword-type :teste/keyoerd) => truthy)
+        (s/valid? :employee/keyword-type :teste/keyoerd) => truthy)
 
   (fact ":db.type/bigdec"
-        (s/valid? :octopus-test.employee/bigdec-type (bigdec 5)) => truthy)
+        (s/valid? :employee/bigdec-type (bigdec 5)) => truthy)
 
   (fact ":db.type/double"
-        (s/valid? :octopus-test.employee/double-type (double 5)) => truthy)
+        (s/valid? :employee/double-type (double 5)) => truthy)
 
   (fact ":db.type/bigint"
-        (s/valid? :octopus-test.employee/bigint-type (bigint 5)) => truthy)
+        (s/valid? :employee/bigint-type (bigint 5)) => truthy)
 
   (fact ":db.type/long"
-        (s/valid? :octopus-test.employee/long-type (long 5)) => truthy)
+        (s/valid? :employee/long-type (long 5)) => truthy)
 
   (fact ":db.type/uri"
-        (s/valid? :octopus-test.employee/uri-type (URI. "http://example.com/foo/bar")) => truthy)
+        (s/valid? :employee/uri-type (URI. "http://example.com/foo/bar")) => truthy)
 
   (fact ":db.type/symbol?"
-        (s/valid? :octopus-test.employee/symbol-type 'symbol) => truthy)
+        (s/valid? :employee/symbol-type 'symbol) => truthy)
 
   (facts "ID - na versao ocotopus agora valida como uuid"
          (fact
-           (s/valid? :octopus-test.employee/id (.toString (UUID/randomUUID))) => falsey)
+           (s/valid? :employee/id (.toString (UUID/randomUUID))) => falsey)
 
          (fact
-           (s/valid? :octopus-test.employee/id (UUID/randomUUID))) => truthy))
+           (s/valid? :employee/id (UUID/randomUUID))) => truthy)
+
+  (facts "Tuplas composite"
+         (fact
+           (s/valid? :employee/composite-key [1 [{:employee/id (UUID/randomUUID) :employee/number "number" :employee/name "Nome CVoworker"}]]) => truthy)
+
+         (fact
+          (s/valid? :employee/composite-key [1 [{:employee/id (.toString (UUID/randomUUID)) :employee/number "number" :employee/name "Nome CVoworker"}]]) => falsey)
+
+         (fact
+           (s/valid? :employee/composite-key [1 {:employee/id (.toString (UUID/randomUUID)) :employee/number "number" :employee/name "Nome CVoworker"}]) => falsey)))
