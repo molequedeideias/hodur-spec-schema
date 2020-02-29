@@ -84,15 +84,15 @@
                                       :deprecation  "This is deprecated"}
                                     bigdec-type
                                     ^{:datomic/type          :db.type/tuple
-                                      :datomic/tupleType     :db/long
+                                      :datomic/tupleType     :db.type/long
                                       :cardinality           [1 n]
                                       :optional              true
-                                      :model.attr/persisted? true} tupla-simples
+                                      :model.attr/persisted? true} tupla-homogenea
 
                                     ^{:datomic/type          :db.type/tuple
-                                      :datomic/tupleTypes    [:db/long :db/keyword]
+                                      :datomic/tupleTypes    [:db.type/long :db.type/keyword :db.type/string]
                                       :optional              true
-                                      :model.attr/persisted? true} tupla-composta
+                                      :model.attr/persisted? true} tupla-heterogenea
 
                                     ^{:datomic/type       :db.type/tuple
                                       :datomic/tupleAttrs [:employee/age :employee/co-workers]
@@ -104,7 +104,7 @@
                                     ^Estado-Workflow-Employee status
                                     ^SearchResult last-search-results]
 
-                                   ^{:union true
+                                   ^{:union      true
                                      :spec/alias :entidade/search-result}
                                    SearchResult
                                    [Employee Person EmploymentType]
@@ -174,7 +174,30 @@
            (s/valid? :employee/composite-key [1 [{:employee/id (UUID/randomUUID) :employee/number "number" :employee/name "Nome CVoworker"}]]) => truthy)
 
          (fact
-          (s/valid? :employee/composite-key [1 [{:employee/id (.toString (UUID/randomUUID)) :employee/number "number" :employee/name "Nome CVoworker"}]]) => falsey)
+           (s/valid? :employee/composite-key [1 [{:employee/id (.toString (UUID/randomUUID)) :employee/number "number" :employee/name "Nome CVoworker"}]]) => falsey)
 
          (fact
-           (s/valid? :employee/composite-key [1 {:employee/id (.toString (UUID/randomUUID)) :employee/number "number" :employee/name "Nome CVoworker"}]) => falsey)))
+           (s/valid? :employee/composite-key [1 {:employee/id (.toString (UUID/randomUUID)) :employee/number "number" :employee/name "Nome CVoworker"}]) => falsey))
+
+  (facts "Tuplas homogeneas"
+         (fact
+           (s/valid? :employee/tupla-homogenea [[1 2 3 4]]) => truthy)
+
+         (fact
+           (s/valid? :employee/tupla-homogenea [1 2 3 4]) => falsey)
+
+         (fact
+           (s/valid? :employee/tupla-homogenea [[1 "2" 3 4]]) => falsey))
+
+  (facts "Tuplas heterogeneas"
+         (fact
+           (s/valid? :employee/tupla-heterogenea [1 :k2 "3"]) => truthy)
+
+         (fact
+           (s/valid? :employee/tupla-homogenea [[1 :k2 "3"]]) => falsey)
+
+         (fact
+           (s/valid? :employee/tupla-homogenea [1  "3" :k2 ]) => falsey)
+
+         (fact
+           (s/valid? :employee/tupla-homogenea [1 :k2 "3" 1] ) => falsey)))

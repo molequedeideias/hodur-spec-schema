@@ -137,47 +137,47 @@
 
 (defmulti ^:private get-spec-form*
           (fn [obj opts]
-            (cond
-              (:field/optional obj)
-              :optional-field
+            (sc/spy (cond
+                      (:field/optional obj)
+                      :optional-field
 
-              (:param/optional obj)
-              :optional-param
+                      (:param/optional obj)
+                      :optional-param
 
-              (many-cardinality? obj)
-              :many-ref
+                      (many-cardinality? obj)
+                      :many-ref
 
-              (:type/enum obj)
-              :enum
+                      (:type/enum obj)
+                      :enum
 
-              (:type/union obj)
-              :union
+                      (:type/union obj)
+                      :union
 
-              (and (:field/name obj)
-                   (-> obj :field/parent :type/enum))
-              :enum-entry
+                      (and (:field/name obj)
+                           (-> obj :field/parent :type/enum))
+                      :enum-entry
 
-              (:field/union-type obj)
-              :union-field
+                      (:field/union-type obj)
+                      :union-field
 
-              (:type/name obj)
-              :entity
+                      (:type/name obj)
+                      :entity
 
-              (:datomic/type obj)
-              (:datomic/type obj)
+                      (:datomic/type obj)
+                      (:datomic/type obj)
 
-              (:datomic/tupleType obj)
-              :db.type/tuple
+                      (:datomic/tupleType obj)
+                      :db.type/tuple
 
-              (and (seqable? obj)
-                   (every? #(= :param (:node/type %)) obj))
-              :param-group
+                      (and (seqable? obj)
+                           (every? #(= :param (:node/type %)) obj))
+                      :param-group
 
-              (:field/name obj)                             ;; simple field, dispatch type name
-              (-> obj :field/type :type/name)
+                      (:field/name obj)                     ;; simple field, dispatch type name
+                      (-> obj :field/type :type/name)
 
-              (:param/name obj)                             ;; simple param, dispatch type name
-              (-> obj :param/type :type/name))))
+                      (:param/name obj)                     ;; simple param, dispatch type name
+                      (-> obj :param/type :type/name)))))
 
 (defn ^:private get-spec-form [obj opts]
   (if (map? obj)
@@ -285,6 +285,10 @@
 
 ;EXTENSOES OCOTOPUS
 
+(defmethod get-spec-form* :db.type/string
+  [obj opts]
+  `string?)
+
 (defmethod get-spec-form* :db.type/keyword
   [obj opts]
   `keyword?)
@@ -317,12 +321,36 @@
   [obj opts]
   `double?)
 
-(defmethod get-spec-form* :db.type/tuple
+(defmulti get-spec-form-db-type-tuple
+          (fn [{:keys [datomic/tupleAttrs
+                       datomic/tupleType
+                       datomic/tupleTypes] :as obj} opts]
+            (cond tupleAttrs :tuple-composite
+                  tupleType :tuple-homogeneous
+                  tupleTypes :tuple-heterogeneous)))
+
+(defmethod get-spec-form-db-type-tuple :tuple-composite
   [{:keys [datomic/tupleAttrs] :as obj} opts]
   (m/rewrite tupleAttrs
              [(m/and !n !n1) ...]
              (clojure.spec.alpha/cat . (m/app (comp keyword name) !n)
-                 !n1 ...)))
+                                     !n1 ...)))
+
+(defmethod get-spec-form-db-type-tuple :tuple-homogeneous
+  [{:keys [datomic/tupleType] :as obj} opts]
+  (sc/spy (list `s/coll-of (get-spec-form* {:datomic/type tupleType} {}))))
+
+
+(defmethod get-spec-form-db-type-tuple :tuple-heterogeneous
+  [{:keys [datomic/tupleTypes] :as obj} opts]
+  (m/rewrite tupleTypes
+             [!types ...]
+             (clojure.spec.alpha/tuple . (m/app #(get-spec-form* {:datomic/type %} {}) !types)
+                                       ...)))
+
+(defmethod get-spec-form* :db.type/tuple
+  [obj opts]
+  (sc/spy (get-spec-form-db-type-tuple obj opts)))
 
 ;EXTENSOES OCOTOPUS
 
@@ -485,7 +513,7 @@
   ([conn]
    (schema conn nil))
   ([conn {:keys [prefix] :as opts}]
-   (let [opts' (if (= :ns prefix)(assoc opts :prefix (default-prefix)) opts)]
+   (let [opts' (if (= :ns prefix) (assoc opts :prefix (default-prefix)) opts)]
      (compile-all conn opts'))))
 
 (defmacro defspecs
