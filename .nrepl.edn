@@ -1,0 +1,2 @@
+{:port         60465
+ :middleware   [sc.nrepl.middleware/wrap-letsc]}
