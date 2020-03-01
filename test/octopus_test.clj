@@ -110,12 +110,6 @@
                                    [Employee Person EmploymentType]
 
                                    ^{:enum               true
-                                     :model.attr/dominio :enum/teste}
-                                   EmploymentType
-                                   [FULL_TIME
-                                    ^{:doc "Documented enum"}
-                                    PART_TIME]
-                                   ^{:enum               true
                                      :model.attr/dominio :enum/employment-type}
                                    EmploymentType
                                    [FULL_TIME
@@ -200,4 +194,20 @@
            (s/valid? :employee/tupla-homogenea [1  "3" :k2 ]) => falsey)
 
          (fact
-           (s/valid? :employee/tupla-homogenea [1 :k2 "3" 1] ) => falsey)))
+           (s/valid? :employee/tupla-homogenea [1 :k2 "3" 1] ) => falsey))
+
+  (facts "Enums"
+         (fact
+           (s/valid? :employment-type/full-time :employment-type/full-time) => truthy)
+
+         (fact
+           (s/valid? :employment-type/full-time :full-time) => falsey)
+
+         (fact
+           (s/valid? :enum/employment-type :employment-type/full-time) => truthy)
+
+         (fact
+           (s/valid? :enum/employment-type :employment-type/part-time) => truthy)
+
+         (fact
+           (s/valid? :enum/employment-type :employment/part-time) => falsey)))

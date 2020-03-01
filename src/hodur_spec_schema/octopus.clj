@@ -4,7 +4,7 @@
             [datascript.query-v3 :as q]
             [camel-snake-kebab.core :refer [->kebab-case-string]]
             [meander.epsilon :as m]
-            [sc.api :as sc]))
+            #_[sc.api :as sc]))
 
 (defn ^:private get-ids-by-node-type [conn node-type]
   (case node-type
@@ -48,6 +48,12 @@
   (keyword (name prefix-entities)
            (->kebab-case-string type-name)))
 
+(defn ^:private get-spec-entity-enum-name
+  [type-name
+   {:keys [prefix-enums] :or {prefix-enums "enum"}}]
+  (keyword (name prefix-enums)
+           (->kebab-case-string type-name)))
+
 (defn ^:private get-namespace-for-spec
   [prefix type-name]
   (if prefix
@@ -80,8 +86,11 @@
                 params-postfix)))
 
 (defmethod get-spec-name :type
-  [{:keys [type/kebab-case-name]} opts]
-  (get-spec-entity-name (name kebab-case-name) opts))
+  [{:keys [type/kebab-case-name
+           type/enum]} opts]
+  (if enum
+    (get-spec-entity-enum-name (name kebab-case-name) opts)
+    (get-spec-entity-name (name kebab-case-name) opts)))
 
 (defmethod get-spec-name :field
   [{:keys [field/kebab-case-name
@@ -137,47 +146,47 @@
 
 (defmulti ^:private get-spec-form*
           (fn [obj opts]
-            (sc/spy (cond
-                      (:field/optional obj)
-                      :optional-field
+            (cond
+              (:field/optional obj)
+              :optional-field
 
-                      (:param/optional obj)
-                      :optional-param
+              (:param/optional obj)
+              :optional-param
 
-                      (many-cardinality? obj)
-                      :many-ref
+              (many-cardinality? obj)
+              :many-ref
 
-                      (:type/enum obj)
-                      :enum
+              (:type/enum obj)
+              :enum
 
-                      (:type/union obj)
-                      :union
+              (:type/union obj)
+              :union
 
-                      (and (:field/name obj)
-                           (-> obj :field/parent :type/enum))
-                      :enum-entry
+              (and (:field/name obj)
+                   (-> obj :field/parent :type/enum))
+              :enum-entry
 
-                      (:field/union-type obj)
-                      :union-field
+              (:field/union-type obj)
+              :union-field
 
-                      (:type/name obj)
-                      :entity
+              (:type/name obj)
+              :entity
 
-                      (:datomic/type obj)
-                      (:datomic/type obj)
+              (:datomic/type obj)
+              (:datomic/type obj)
 
-                      (:datomic/tupleType obj)
-                      :db.type/tuple
+              (:datomic/tupleType obj)
+              :db.type/tuple
 
-                      (and (seqable? obj)
-                           (every? #(= :param (:node/type %)) obj))
-                      :param-group
+              (and (seqable? obj)
+                   (every? #(= :param (:node/type %)) obj))
+              :param-group
 
-                      (:field/name obj)                     ;; simple field, dispatch type name
-                      (-> obj :field/type :type/name)
+              (:field/name obj)                     ;; simple field, dispatch type name
+              (-> obj :field/type :type/name)
 
-                      (:param/name obj)                     ;; simple param, dispatch type name
-                      (-> obj :param/type :type/name)))))
+              (:param/name obj)                     ;; simple param, dispatch type name
+              (-> obj :param/type :type/name))))
 
 (defn ^:private get-spec-form [obj opts]
   (if (map? obj)
@@ -228,13 +237,11 @@
            (reduce-kv (fn [c k v]
                         (conj c k v))
                       [entity-spec] other-nodes))))
-
+;;EXPLANING:You can use metadata trick Because metadata is on the set item
 (defmethod get-spec-form* :enum
   [{:keys [field/_parent]} opts]
-  (list* `s/or
-         (reduce (fn [c {:keys [field/kebab-case-name] :as field}]
-                   (conj c kebab-case-name (get-spec-name field opts)))
-                 [] _parent)))
+  (m/rewrite (mapv #(get-spec-name % opts) _parent)
+             [!enums ...] #{^& (!enums ...)}))
 
 (defmethod get-spec-form* :union
   [{:keys [field/_parent]} opts]
@@ -242,12 +249,11 @@
          (reduce (fn [c {:keys [field/kebab-case-name] :as field}]
                    (conj c kebab-case-name (get-spec-name field opts)))
                  [] _parent)))
-
+;"No nosso caso, requisitos mais estritos. Tem que ser igual ao tipo"
 (defmethod get-spec-form* :enum-entry
-  [{:keys [field/name]} _]
-  `#(= ~name (when (or (string? %)
-                       (keyword? %))
-               (name %))))
+  [obj opts]
+  (m/rewrite (get-spec-name obj opts)
+             ?keyword #(= ?keyword %)))
 
 (defmethod get-spec-form* :union-field
   [{:keys [field/union-type]} opts]
@@ -338,7 +344,7 @@
 
 (defmethod get-spec-form-db-type-tuple :tuple-homogeneous
   [{:keys [datomic/tupleType] :as obj} opts]
-  (sc/spy (list `s/coll-of (get-spec-form* {:datomic/type tupleType} {}))))
+  (list `s/coll-of (get-spec-form* {:datomic/type tupleType} {})))
 
 
 (defmethod get-spec-form-db-type-tuple :tuple-heterogeneous
@@ -350,7 +356,7 @@
 
 (defmethod get-spec-form* :db.type/tuple
   [obj opts]
-  (sc/spy (get-spec-form-db-type-tuple obj opts)))
+  (get-spec-form-db-type-tuple obj opts))
 
 ;EXTENSOES OCOTOPUS
 
@@ -519,98 +525,21 @@
 (defmacro defspecs
   ([conn]
    `(defspecs ~conn nil))
-  ([conn {:keys [prefix] :as opts}]
+  ([conn {:keys [prefix prefix-entities prefix-enums] :as opts}]
    (let [opts# (if (= :ns prefix) (assoc opts :prefix (eval-default-prefix)) (eval opts))
+         opts## (if (= :ns prefix-entities) (assoc opts# :prefix-entities (eval-default-prefix)) opts#)
+         opts### (if (= :ns prefix-enums) (assoc opts## :prefix-enums (eval-default-prefix)) opts##)
          conn# (eval conn)]
      (mapv (fn [form] form)
-           (schema conn# opts#)))))
+           (schema conn# opts###)))))
 
 
 
 
 
 
-(comment
-  (require '[clojure.spec.gen.alpha :as gen])
-  (require '[hodur-engine.core :as engine])
-  (require 'test-fns)
-  (use 'core-test))
 
 
 
-
-(comment
-  (def meta-db (engine/init-schema basic-schema
-                                   #_cardinality-schema
-                                   #_aliases-schema
-                                   #_extend-override-schema))
-
-  (let [s (schema meta-db {:prefix :my-app})]
-    #_(clojure.pprint/pprint s)))
-
-
-
-
-(comment
-
-  (defspecs meta-db {:prefix :my-app})
-
-
-  (count (schema meta-db {:prefix :my-app}))
-  (count (filter #(or (clojure.string/starts-with? (namespace %) "my-app")
-                      (clojure.string/starts-with? (namespace %) "beings")
-                      (clojure.string/starts-with? (namespace %) "my-entity")
-                      (clojure.string/starts-with? (namespace %) "my-field")
-                      (clojure.string/starts-with? (namespace %) "my-param"))
-                 (keys (s/registry))))
-
-  (s/valid? :my-app.person.height/unit "METERS")
-
-  (s/valid? :my-app/pet {:name "bla" :dob #inst "2000-10-10" :race "cat"})
-
-  (s/valid? :my-app/person {:first-name "Tiago"
-                            :last-name  "Luchini"
-                            :gender     "MALE"
-                            :height     1.78})
-
-  (s/explain :my-app/person {:first-name "Tiago"
-                             :last-name  "Luchini"
-                             :gender     "MALE"
-                             :height     1.78})
-
-  (s/valid? :my-app.query-root/search
-            [{:name "Lexie"
-              :dob  #inst "2016-10-10"
-              :race "Dog"}
-             {:first-name "Tiago"
-              :last-name  "Luchini"
-              :gender     "MALE"
-              :height     1.78}])
-
-  (s/valid? :my-app.cardinality-entity/many-strings [])
-  (s/valid? :my-app.cardinality-entity/many-strings ["foo" "bar"])
-  (s/valid? :my-app.cardinality-entity/many-genders ["MALE" "UNKOWN"])
-  (s/valid? :my-app.cardinality-entity/exactly-four-strings ["foo" "bar" "foo2" "bar2"])
-  (s/valid? :my-app.cardinality-entity/exactly-three-to-five-people
-            [{:name "Name" :gender "MALE"}
-             {:name "Name" :gender "MALE"}
-             {:name "Name" :gender "MALE"}])
-  (s/valid? :my-app.cardinality-entity/distinct-integers [1 2 3])
-  (s/valid? :my-app.cardinality-entity/distinct-integers-in-a-list '(1 2 3))
-
-  (s/valid? :my-param/alias "qwe")
-  (s/valid? :my-field/alias1 "qwe")
-  (s/valid? :my-field/alias2 "qwe")
-  (s/valid? :my-entity/alias {:an-aliased-field "qwe"})
-
-  (s/valid? :my-app.extend-override-entity/keyword-field :qwe)
-  (s/valid? :my-app.extend-override-entity/email-field "qwe@asd.com")
-
-  (gen/generate (s/gen :my-app/animal))
-
-  (gen/generate (s/gen :my-app.extend-override-entity/keyword-field))
-  (gen/generate (s/gen :my-app.extend-override-entity/email-field))
-
-  (gen/generate (s/gen :my-app/extend-override-entity)))
   
 

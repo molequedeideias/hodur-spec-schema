@@ -445,10 +445,10 @@
   (require '[clojure.spec.gen.alpha :as gen])
   (require '[hodur-engine.core :as engine])
   (require 'test-fns)
-  (use 'core-test)
+  (use 'core-test))
 
 
-  )
+
 
 (comment
   (def meta-db (engine/init-schema basic-schema
@@ -457,9 +457,9 @@
                                    #_extend-override-schema))
 
   (let [s (schema meta-db {:prefix :my-app})]
-    #_(clojure.pprint/pprint s))
+    #_(clojure.pprint/pprint s)))
 
-  )
+
 
 
 (comment
@@ -522,6 +522,6 @@
   (gen/generate (s/gen :my-app.extend-override-entity/keyword-field))
   (gen/generate (s/gen :my-app.extend-override-entity/email-field))
 
-  (gen/generate (s/gen :my-app/extend-override-entity))
+  (gen/generate (s/gen :my-app/extend-override-entity)))
   
-  )
+
