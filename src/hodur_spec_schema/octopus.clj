@@ -291,6 +291,10 @@
 
 ;EXTENSOES OCOTOPUS
 
+(defmethod get-spec-form* :db.type/ref
+  [obj opts]
+  `coll?)
+
 (defmethod get-spec-form* :db.type/string
   [obj opts]
   `string?)

@@ -80,6 +80,10 @@
                                     ^{:datomic/type :db.type/symbol}
                                     symbol-type
 
+                                    ^{:datomic/type :db.type/ref}
+                                    ref-type
+
+
                                     ^{:datomic/type :db.type/bigdec
                                       :deprecation  "This is deprecated"}
                                     bigdec-type
@@ -156,6 +160,18 @@
   (fact ":db.type/symbol?"
         (s/valid? :employee/symbol-type 'symbol) => truthy)
 
+  (facts ":db.type/ref"
+         (fact "ex1 "
+               (s/valid? :employee/ref-type {}) => truthy)
+         (fact "ex2 "
+               (s/valid? :employee/ref-type [{:a 1 }]) => truthy)
+         (fact "ex3 "
+               (s/valid? :employee/ref-type nil) => truthy)
+         (fact "ex4 "
+               (s/valid? :employee/ref-type "") => falsey)
+         (fact "ex3 "
+               (s/valid? :employee/ref-type 1) => falsey))
+
   (facts "ID - na versao ocotopus agora valida como uuid"
          (fact
            (s/valid? :employee/id (.toString (UUID/randomUUID))) => falsey)
@@ -191,10 +207,10 @@
            (s/valid? :employee/tupla-homogenea [[1 :k2 "3"]]) => falsey)
 
          (fact
-           (s/valid? :employee/tupla-homogenea [1  "3" :k2 ]) => falsey)
+           (s/valid? :employee/tupla-homogenea [1 "3" :k2]) => falsey)
 
          (fact
-           (s/valid? :employee/tupla-homogenea [1 :k2 "3" 1] ) => falsey))
+           (s/valid? :employee/tupla-homogenea [1 :k2 "3" 1]) => falsey))
 
   (facts "Enums"
          (fact
