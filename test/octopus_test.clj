@@ -83,6 +83,9 @@
                                     ^{:datomic/type :db.type/ref}
                                     ref-type
 
+                                    ^{:datomic/type :db.type/instant}
+                                    instant-type
+
 
                                     ^{:datomic/type :db.type/bigdec
                                       :deprecation  "This is deprecated"}
@@ -157,8 +160,11 @@
   (fact ":db.type/uri"
         (s/valid? :employee/uri-type (URI. "http://example.com/foo/bar")) => truthy)
 
-  (fact ":db.type/symbol?"
+  (fact ":db.type/symbol"
         (s/valid? :employee/symbol-type 'symbol) => truthy)
+
+  (fact ":db.type/instant"
+       (s/valid? :employee/instant-type  (new java.util.Date)) => truthy)
 
   (facts ":db.type/ref"
          (fact "ex1 "

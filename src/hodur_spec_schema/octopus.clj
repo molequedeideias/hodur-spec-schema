@@ -331,6 +331,10 @@
   [obj opts]
   `double?)
 
+(defmethod get-spec-form* :db.type/instant
+  [obj opts]
+  `inst?)
+
 (defmulti get-spec-form-db-type-tuple
           (fn [{:keys [datomic/tupleAttrs
                        datomic/tupleType
